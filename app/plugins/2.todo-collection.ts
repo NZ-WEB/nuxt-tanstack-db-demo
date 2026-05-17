@@ -1,9 +1,20 @@
 import { createCollection } from "@tanstack/vue-db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { QueryClient } from "@tanstack/query-core";
-import { todoSchema, type Todo } from "#shared/schemas/todo";
+import type { InsertMutationFnParams, UpdateMutationFnParams, DeleteMutationFnParams } from "@tanstack/db";
+import { todoSchema, type Todo, type CreateTodoInput, type UpdateTodoInput, type ToggleTodoInput, type DeleteTodoInput } from "#shared/schemas/todo";
 
-function createTodoCollection(trpc: any) {
+interface TRpcClient {
+  todo: {
+    list: { query: () => Promise<Todo[]> };
+    create: { mutate: (input: CreateTodoInput) => Promise<Todo> };
+    toggle: { mutate: (input: ToggleTodoInput) => Promise<Todo> };
+    update: { mutate: (input: UpdateTodoInput) => Promise<Todo> };
+    delete: { mutate: (input: DeleteTodoInput) => Promise<Todo | null> };
+  };
+}
+
+function createTodoCollection(trpc: TRpcClient) {
   const queryClient = new QueryClient();
   return createCollection(
     queryCollectionOptions({
@@ -12,17 +23,18 @@ function createTodoCollection(trpc: any) {
       queryClient,
       getKey: (item: Todo) => item.id,
       schema: todoSchema,
-      onInsert: async ({ transaction }: any) => {
-        await Promise.all(
-          transaction.mutations.map((m: any) =>
-            trpc.todo.create.mutate(m.modified as Todo),
+      onInsert: async ({ transaction }: InsertMutationFnParams<Todo>) => {
+        const results = await Promise.all(
+          transaction.mutations.map((m) =>
+            trpc.todo.create.mutate(m.modified),
           ),
         );
+        return results;
       },
-      onUpdate: async ({ transaction }: any) => {
+      onUpdate: async ({ transaction }: UpdateMutationFnParams<Todo>) => {
         await Promise.all(
-          transaction.mutations.map((m: any) => {
-            const changes = m.changes as Partial<Todo>;
+          transaction.mutations.map((m) => {
+            const changes = m.changes;
             if (changes.completed !== undefined) {
               return trpc.todo.toggle.mutate({
                 id: m.key,
@@ -38,9 +50,9 @@ function createTodoCollection(trpc: any) {
           }),
         );
       },
-      onDelete: async ({ transaction }: any) => {
+      onDelete: async ({ transaction }: DeleteMutationFnParams<Todo>) => {
         await Promise.all(
-          transaction.mutations.map((m: any) =>
+          transaction.mutations.map((m) =>
             trpc.todo.delete.mutate({ id: m.key }),
           ),
         );
