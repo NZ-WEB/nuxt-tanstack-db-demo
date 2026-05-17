@@ -1,8 +1,19 @@
 import { createCollection } from "@tanstack/vue-db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { QueryClient } from "@tanstack/query-core";
-import type { InsertMutationFnParams, UpdateMutationFnParams, DeleteMutationFnParams } from "@tanstack/db";
-import { todoSchema, type Todo, type CreateTodoInput, type UpdateTodoInput, type ToggleTodoInput, type DeleteTodoInput } from "#shared/schemas/todo";
+import type {
+  InsertMutationFnParams,
+  UpdateMutationFnParams,
+  DeleteMutationFnParams,
+} from "@tanstack/db";
+import {
+  todoSchema,
+  type Todo,
+  type CreateTodoInput,
+  type UpdateTodoInput,
+  type ToggleTodoInput,
+  type DeleteTodoInput,
+} from "#shared/schemas/todo";
 
 interface TRpcClient {
   todo: {
@@ -25,9 +36,7 @@ function createTodoCollection(trpc: TRpcClient) {
       schema: todoSchema,
       onInsert: async ({ transaction }: InsertMutationFnParams<Todo>) => {
         const results = await Promise.all(
-          transaction.mutations.map((m) =>
-            trpc.todo.create.mutate(m.modified),
-          ),
+          transaction.mutations.map((m) => trpc.todo.create.mutate(m.modified)),
         );
         return results;
       },
